@@ -1,9 +1,8 @@
 {
   "expo": {
-    "name": "eCommerce app",
-    "slug": "ecommerce-app",
+    "name": "recorderapp",
+    "slug": "recorderapp",
     "privacy": "public",
-    "sdkVersion": "37.0.0",
     "platforms": [
       "ios",
       "android",

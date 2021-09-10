@@ -1,39 +1,116 @@
-import React, { useState } from 'react'
-import { AppLoading } from 'expo'
-import * as Font from 'expo-font'
-import cartReducer from './store/reducers/cart'
-import orderReducer from './store/reducers/order'
-import productReducer from './store/reducers/products'
-import authReducer from './store/reducers/auth'
-import { Provider } from 'react-redux'
-import { combineReducers, createStore, applyMiddleware } from 'redux'
-import thunk from 'redux-thunk'
-import NavigationContainer from './navigation/navigationContainer'
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  Text, View, Button, Slider,
+  Dimensions, TouchableOpacity
+} from 'react-native';
+import { Audio } from 'expo-av';
+import { styles } from './styles';
+import Icon from '@expo/vector-icons/Ionicons';
 
+const { width, height } = Dimensions.get('window');
 export default function App() {
-  const [fontLoaded, setfontLoaded] = useState(false)
-  const fetchFonts = () => {
-    return Font.loadAsync({
-      'open-sans': require('./assets/fonts/OpenSans-Regular.ttf'),
-      'open-sans-bold': require('./assets/fonts/OpenSans-Bold.ttf')
-    })
+  const [recording, setRecording] = useState('');
+  const [path, setPath] = useState('');
+  const [sounds, setSound] = useState('');
+  const [time, settime] = useState(0);
+  const [see, setsee] = useState(false);
+  const [runtime, setruntime] = useState(0);
+  const [start, setstart] = useState(false);
+
+  async function startRecording() {
+    try {
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+      );
+      setRecording(recording);
+      setsee(true);
+    } catch (e) {
+      console.log('Failed to start recording');
+    }
   }
 
 
-  
-  const reducer = combineReducers({
-    products: productReducer,
-    cart: cartReducer,
-    order: orderReducer,
-    auth: authReducer
-  })
-  const store = createStore(reducer, applyMiddleware(thunk))
-  if (!fontLoaded) {
-    return <AppLoading startAsync={fetchFonts}
-      onFinish={() => setfontLoaded(true)}
-      onError={err => console.log(err)} />
+  useEffect(
+    () => {
+      let counts = 0;
+      if (start) {
+        const intervalnew = setInterval(() => {
+          setruntime(counts = counts + 0.1);
+        }, 100);
+        return () => clearInterval(intervalnew);
+      }
+    }, [start]);
+
+
+
+  useEffect(() => {
+    if (runtime > time) {
+      console.log('here53', runtime, time);
+      setstart(false);
+      settime(0);
+      setruntime(0);
+      setPath('')
+    }
+  }, [runtime])
+
+  async function stopRecording() {
+    console.log('stoprun');
+    try {
+      setRecording(null);
+      const res = await recording.stopAndUnloadAsync();
+      settime(parseInt(res.durationMillis.toString().split('')[0]));
+      const uri = recording.getURI();
+      setPath(uri);
+      setsee(false);
+    } catch (error) {
+      console.log('err64');
+    }
   }
-  return <Provider store={store}>
-    <NavigationContainer />
-  </Provider>
+
+  const playSound = async () => {
+    try {
+      const { sound } = await Audio.Sound.createAsync({ uri: path });
+      setSound(sound);
+      const re = await sound.playAsync();
+      setstart(true);
+    } catch (error) {
+      console.log('err71')
+    }
+  }
+
+
+  return (
+    <View style={{
+      ...styles.container,
+      display: 'flex'
+    }}>
+      <TouchableOpacity
+        title={recording ? 'Stop Recording' : 'Start Recording'}
+        style={{ margin: 0, backgroundColor: 'lightblue', padding: 7, }}
+        onPress={recording ? stopRecording : startRecording}>
+        <Text style={{ color: 'white' }}>{recording ? 'Stop Recording' :
+          'Start Recording'}</Text>
+      </TouchableOpacity>
+      <Slider
+        value={start ? runtime : 0}
+        maximumValue={time}
+        minimumValue={0}
+        step={0.1}
+        style={{ width: width, margin: 0 }}
+        onSlidingComplete={() => setstart(false)}
+        thumbTintColor={start ? 'green' : 'red'}
+      />
+      <Icon
+        title={start ? 'pause' : 'play'}
+        color='gray'
+        size={40}
+        name={start ? 'pause' : 'play'}
+        onPress={playSound} />
+    </View>
+  )
 }
